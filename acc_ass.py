@@ -52,6 +52,8 @@ for idx, row in test_set.iterrows():
 
 # -
 
+test_data['five_OverSam_TestRes']['inclusion_prob']
+
 test_set
 
 # ### Formula to calculate overall accuracy
@@ -60,15 +62,20 @@ test_set
 
 # ### Overall accuracy
 
+strata_err_mat
+
+total_A = 0
+for key, value in strata_subset.items():
+    print([val[2] for val in value])
+
 # +
-strata_err_mat = defaultdict(list) 
+strata_err_mat = defaultdict(list)
 for strata in test_set['CropTyp'].unique():
     strata_subset = {key: value for key, value in id_dict.items() if key[1] == strata}
 
-    # Calculate Pij (proportion of area in map class i and reference class j)
+   
     total_A = 0
     for key, value in strata_subset.items():
-        
         total_A += np.array([val[2] for val in value]).sum()
     total_A
 
@@ -112,8 +119,6 @@ overall_acc = np.array(diag_vals).sum()/error_matrix.values.sum()
 print(overall_acc)
 # -
 
-strata_err_mat
-
 # ### User's accuracy
 
 # ![Overal_acc](formulas/Users_producers.png)
@@ -122,6 +127,7 @@ strata_err_mat
 c = 1    # class = [1, 2]
 numor = strata_err_mat[(c, c)][-1]    # Get the numerator
 
+# Filter for map class c (rows == c)
 filtered_dict = {key: values[:-2] for key, values in strata_err_mat.items() if 
                  key[0] == c}
 # Transform filtered_dict : {"strata": (area proportion, count)}
@@ -136,7 +142,8 @@ for key, value_list in filtered_dict.items():
         if strata not in transformed_dict:
             transformed_dict[strata] = (number, count)
         else:
-            transformed_dict[strata] = (transformed_dict[strata][0] + number, transformed_dict[strata][1] + count)
+            transformed_dict[strata] = (transformed_dict[strata][0] + number,
+                                         transformed_dict[strata][1] + count)
 
 N_star_h = np.array([value[1] for key, value in transformed_dict.items()])
 y_bar_h = np.array([value[0] for key, value in transformed_dict.items()])
@@ -148,4 +155,34 @@ users_acc
 
 # -
 
-filtered_dict
+# ### Producer's accuracy
+
+# ![Overal_acc](formulas/Users_producers.png)
+
+# +
+# Filter for reference class c (columns == c)
+filtered_dict = {key: values[:-2] for key, values in strata_err_mat.items() if 
+                 key[1] == c}
+# Transform filtered_dict : {"strata": (area proportion, count)}
+transformed_dict = {}
+
+# Iterate through the original dictionary
+for key, value_list in filtered_dict.items():
+    for item in value_list:
+        # print(item)
+        strata, number, count = item
+        
+        if strata not in transformed_dict:
+            transformed_dict[strata] = (number, count)
+        else:
+            transformed_dict[strata] = (transformed_dict[strata][0] + number,
+                                         transformed_dict[strata][1] + count)
+
+N_star_h = np.array([value[1] for key, value in transformed_dict.items()])
+y_bar_h = np.array([value[0] for key, value in transformed_dict.items()])
+
+denomor = sum(N_star_h * y_bar_h)
+
+Prods_acc = numor/denomor
+Prods_acc
+

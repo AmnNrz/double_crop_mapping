@@ -40,27 +40,38 @@ for idx, row in test_set.iterrows():
 
 # -
 
-test_data['field_info']
-
 test_set
-
-id_dict.values()
-
-id_dict.items()
 
 # ### Formula to calculate overall accuracy
 # ![Overal_acc](formulas/Unbiased_estimator_0.png)
 # ![Overal_acc](formulas/Unbiased_estimator_1.png)
 
 # +
-croptype = "alfalfa hay"
+# croptype = "alfalfa hay"
+strata_err_mat = defaultdict(list) 
+for strata in test_set['CropTyp'].unique():
+    strata_subset = {key: value for key, value in id_dict.items() if key[1] == strata}
 
-strata_subset = {key: value for key, value in id_dict.items() if key[1] == croptype}
-strata_subset
+    # Calculate Pij (proportion of area in map class i and reference class j)
+    total_A = 0
+    for key, value in strata_subset.items():
+        
+        total_A += np.array([val[2] for val in value]).sum()
+    total_A
 
-# Calculate y_hat_h (which is overall accuracy for strata h)
-# We will use area instead of counts
-strata_area
+   
+    strata_size = 0
+    for key, value in strata_subset.items():
+        strata_size += len([val[2] for val in value])
+        Aij = np.array([val[2] for val in value]).sum()
+        pij = Aij/total_A
+        strata_err_mat[key[0]].append((key[1], pij, strata_size))
+
+# error_mats
+N = test_set.shape[0]
+for key, value in strata_err_mat.items():
+    for val in value: 
 # -
 
-
+for key, value in strata_err_mat.items():
+    print(value)

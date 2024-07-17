@@ -5,7 +5,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.15.1
+#       jupytext_version: 1.15.2
 #   kernelspec:
 #     display_name: tillmap
 #     language: python
@@ -18,9 +18,16 @@ from sklearn.metrics import confusion_matrix
 from collections import defaultdict
 
 # +
+# path_to_data = (
+#     "/home/amnnrz/OneDrive - a.norouzikandelati/Ph.D/Projects/Double_Crop_Mapping/"
+# )
+
 path_to_data = (
-    "/home/amnnrz/OneDrive - a.norouzikandelati/Ph.D/Projects/Double_Crop_Mapping/"
+    "/Users/aminnorouzi/Library/CloudStorage/"
+    "OneDrive-WashingtonStateUniversity(email.wsu.edu)/Ph.D/"
+    "Projects/Double_Crop_Mapping/"
 )
+
 file_path = path_to_data + "five_OverSam_TestRes_and_InclusionProb.sav"
 test_data = pd.read_pickle(file_path)
 field_info = test_data["field_info"][["ID", "ExctAcr"]]
@@ -67,11 +74,39 @@ for strata in test_set['CropTyp'].unique():
         pij = Aij/total_A
         strata_err_mat[key[0]].append((key[1], pij, strata_size))
 
-# error_mats
 N = test_set.shape[0]
 for key, value in strata_err_mat.items():
-    for val in value: 
+    N_star_h = np.array([i[2] for i in value])
+    y_bar_h = np.array([i[1] for i in value])
+    strata_err_mat[key].append(sum(N_star_h * y_bar_h/N))
+
+# Extracting the last element of each list for each key
+error_mat_dict = {(k1, k2): v[-1] for (k1, k2), v in strata_err_mat.items()}
+
+# Creating a DataFrame from the extracted data
+df = pd.DataFrame(list(error_mat_dict.items()), columns=["keys", "values"])
+
+# Splitting the keys into separate columns
+df[["Map", "Reference"]] = pd.DataFrame(df["keys"].tolist(), index=df.index)
+
+# Creating cross tab
+crosstab = pd.crosstab(
+    index=df["Map"], columns=df["Reference"], values=df["values"], aggfunc="sum"
+)
+
+# import ace_tools as tools
+
+# tools.display_dataframe_to_user(name="Confusion Matrix Crosstab", dataframe=crosstab)
+
+# crosstab
 # -
 
-for key, value in strata_err_mat.items():
-    print(value)
+crosstab
+
+strata_err_mat
+
+error_mat_dict
+
+# +
+# for key, value in strata_err_mat.items():
+#     print(value)

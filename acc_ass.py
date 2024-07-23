@@ -5,7 +5,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.15.1
+#       jupytext_version: 1.15.2
 #   kernelspec:
 #     display_name: tillmap
 #     language: python
@@ -23,15 +23,15 @@ from sklearn.metrics import confusion_matrix
 from collections import defaultdict
 
 # +
-path_to_data = (
-    "/home/amnnrz/OneDrive - a.norouzikandelati/Ph.D/Projects/Double_Crop_Mapping/"
-)
-
 # path_to_data = (
-#     "/Users/aminnorouzi/Library/CloudStorage/"
-#     "OneDrive-WashingtonStateUniversity(email.wsu.edu)/Ph.D/"
-#     "Projects/Double_Crop_Mapping/"
+#     "/home/amnnrz/OneDrive - a.norouzikandelati/Ph.D/Projects/Double_Crop_Mapping/"
 # )
+
+path_to_data = (
+    "/Users/aminnorouzi/Library/CloudStorage/"
+    "OneDrive-WashingtonStateUniversity(email.wsu.edu)/Ph.D/"
+    "Projects/Double_Crop_Mapping/"
+)
 
 file_path = path_to_data + "five_OverSam_TestRes_and_InclusionProb.sav"
 test_data = pd.read_pickle(file_path)
@@ -62,40 +62,33 @@ test_set
 
 # ### Overall accuracy
 
-strata_err_mat
-
-total_A = 0
-for key, value in strata_subset.items():
-    print([val[2] for val in value])
-
 # +
 strata_err_mat = defaultdict(list)
 for strata in test_set['CropTyp'].unique():
     strata_subset = {key: value for key, value in id_dict.items() if key[1] == strata}
 
-   
     total_A = 0
     for key, value in strata_subset.items():
         total_A += np.array([val[2] for val in value]).sum()
     total_A
 
-   
     strata_size = 0
     for key, value in strata_subset.items():
         strata_size += len([val[2] for val in value])
         Aij = np.array([val[2] for val in value]).sum()
-        pij = Aij/total_A # pij : propotion of area (this is not the same as
-                        # pij in Foody paper which is error matrix values)
-        strata_err_mat[key[0]].append((key[1], pij, strata_size))
-
+        y_bar_h = Aij/total_A # Here Aij ~ y_u, total_A ~ n_star_h
+        # y_bar_h : propotion of area (this is not the same as
+        # y_bar_h in Foody paper which is error matrix values)
+        strata_err_mat[key[0]].append((key[1], y_bar_h, strata_size))
+strata_err_mat
 N = test_set.shape[0]
 for key, value in strata_err_mat.items():
-    N_star_h = np.array([i[2] for i in value])
-    y_bar_h = np.array([i[1] for i in value])
-    strata_err_mat[key].append(sum(N_star_h * y_bar_h/N))
+    N_star_hs = np.array([i[2] for i in value])
+    y_bar_hs = np.array([i[1] for i in value])
+    strata_err_mat[key].append(sum(N_star_hs * y_bar_hs/N))
 
     # To be used as numerators for user's and producer's accuracy
-    strata_err_mat[key].append(sum(N_star_h * y_bar_h))
+    strata_err_mat[key].append(sum(N_star_hs * y_bar_hs))
 
 # Extracting the last element of each list for each key
 error_mat_dict = {(k1, k2): v[-1] for (k1, k2), v in strata_err_mat.items()}
@@ -111,8 +104,8 @@ error_matrix = pd.crosstab(
     index=df["Map"], columns=df["Reference"], values=df["values"], aggfunc="sum"
 )
 
-# overall_accuray 
-diag_vals = [] 
+# overall_accuray
+diag_vals = []
 for i in np.arange(0, error_matrix.shape[0]):
     diag_vals.append(error_matrix.iloc[i, i])
 overall_acc = np.array(diag_vals).sum()/error_matrix.values.sum()
@@ -186,3 +179,8 @@ denomor = sum(N_star_h * y_bar_h)
 Prods_acc = numor/denomor
 Prods_acc
 
+# -
+
+# ### Variance of overall accuracy
+
+# S_hy =  

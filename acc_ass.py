@@ -5,7 +5,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.15.2
+#       jupytext_version: 1.15.1
 #   kernelspec:
 #     display_name: tillmap
 #     language: python
@@ -22,25 +22,27 @@ import pandas as pd
 from sklearn.metrics import confusion_matrix
 from collections import defaultdict
 
-# +
-# path_to_data = (
-#     "/home/amnnrz/OneDrive - a.norouzikandelati/Ph.D/Projects/Double_Crop_Mapping/"
-# )
 
+
+# +
 path_to_data = (
-    "/Users/aminnorouzi/Library/CloudStorage/"
-    "OneDrive-WashingtonStateUniversity(email.wsu.edu)/Ph.D/"
-    "Projects/Double_Crop_Mapping/"
+    "/home/amnnrz/OneDrive - a.norouzikandelati/Ph.D/Projects/Double_Crop_Mapping/"
 )
 
-file_path = path_to_data + "five_OverSam_TestRes_and_InclusionProb.sav"
-test_data = pd.read_pickle(file_path)
-field_info = test_data["field_info"][["ID", "ExctAcr"]]
-test_set = test_data['five_OverSam_TestRes']['test_results_DL']['train_ID1']['a_test_set_df']
+# path_to_data = (
+#     "/Users/aminnorouzi/Library/CloudStorage/"
+#     "OneDrive-WashingtonStateUniversity(email.wsu.edu)/Ph.D/"
+#     "Projects/Double_Crop_Mapping/"
+# )
+
+file_path = path_to_data + "six_OverSam_TestRes_and_InclusionProb.sav"
+data = pd.read_pickle(file_path)
+field_info = data["field_info"][["ID", "ExctAcr"]]
+test_set = data['six_OverSam_TestRes']['test_results_DL']['train_ID1']['a_test_set_df']
 cm = confusion_matrix(test_set['NDVI_SG_DL_p3'], test_set['Vote'])
 
 
-prob = test_data["five_OverSam_TestRes"]["inclusion_prob"]
+prob = data["six_OverSam_TestRes"]["inclusion_prob"]
 test_set = test_set.merge(prob, on="CropTyp", how="right")
 test_set = test_set.merge(field_info, on="ID", how="inner")
 test_set
@@ -49,12 +51,7 @@ id_dict = defaultdict(list)
 for idx, row in test_set.iterrows():
     id_dict[(row["Vote"], row["NDVI_SG_DL_p3"]), row["CropTyp"]].append((row['ID'],
      row['inclusion_prob'], row['ExctAcr']))
-
 # -
-
-test_data['five_OverSam_TestRes']['inclusion_prob']
-
-test_set
 
 # ### Formula to calculate overall accuracy
 # ![Overal_acc](formulas/Unbiased_estimator_0.png)
@@ -62,7 +59,40 @@ test_set
 
 # ### Overall accuracy
 
+data['six_OverSam_TestRes']['inclusion_prob']
+
 # +
+A_N = data['six_OverSam_TestRes']['inclusion_prob']['denom_acr'].sum()
+
+# Calculate y_bar_h 
+y_bar_h_dict = defaultdict(list)
+for strata in test_set['CropTyp'].unique():
+    strata_subset = {key: value for key, value in id_dict.items() if key[1] == strata}
+    A_yu = sum([value[2] for key, values in strata_subset.items()
+                      for value in values if key[0][0] == key[0][1]])
+
+    A_n_star_h = sum([value[2] for key, values in strata_subset.items()
+                    for value in values])
+
+    y_bar_h_dict[strata].append(A_yu/A_n_star_h)
+
+acr_data = data['six_OverSam_TestRes']['inclusion_prob']
+Y_bar_list = []
+for strata, y_bar_h in y_bar_h_dict.items():
+    # Find the index of the first row where "CropTyp" is "alfalfa"
+    index = acr_data[acr_data['CropTyp'] == strata].index[0]
+
+    # Now use .at to access the specific value
+    A_N_star_h = acr_data.at[index, 'denom_acr']
+
+    Y_bar_list.append(A_N_star_h * y_bar_h[0])
+
+Overall_acc = sum(Y_bar_list)/A_N
+print(Overall_acc)
+
+# +
+N = data['six_OverSam_TestRes']['inclusion_prob']['denom'].sum()
+
 strata_err_mat = defaultdict(list)
 for strata in test_set['CropTyp'].unique():
     strata_subset = {key: value for key, value in id_dict.items() if key[1] == strata}
@@ -81,7 +111,7 @@ for strata in test_set['CropTyp'].unique():
         # y_bar_h in Foody paper which is error matrix values)
         strata_err_mat[key[0]].append((key[1], y_bar_h, strata_size))
 strata_err_mat
-N = test_set.shape[0]
+
 for key, value in strata_err_mat.items():
     N_star_hs = np.array([i[2] for i in value])
     y_bar_hs = np.array([i[1] for i in value])

@@ -62,6 +62,7 @@ for idx, row in test_set.iterrows():
 data['six_OverSam_TestRes']['inclusion_prob']
 
 # +
+# You see A_ because we are using area not just counts 
 A_N = data['six_OverSam_TestRes']['inclusion_prob']['denom_acr'].sum()
 
 # Calculate y_bar_h 
@@ -89,62 +90,154 @@ for strata, y_bar_h in y_bar_h_dict.items():
 
 Overall_acc = sum(Y_bar_list)/A_N
 print(Overall_acc)
-
-# +
-N = data['six_OverSam_TestRes']['inclusion_prob']['denom'].sum()
-
-strata_err_mat = defaultdict(list)
-for strata in test_set['CropTyp'].unique():
-    strata_subset = {key: value for key, value in id_dict.items() if key[1] == strata}
-
-    total_A = 0
-    for key, value in strata_subset.items():
-        total_A += np.array([val[2] for val in value]).sum()
-    total_A
-
-    strata_size = 0
-    for key, value in strata_subset.items():
-        strata_size += len([val[2] for val in value])
-        Aij = np.array([val[2] for val in value]).sum()
-        y_bar_h = Aij/total_A # Here Aij ~ y_u, total_A ~ n_star_h
-        # y_bar_h : propotion of area (this is not the same as
-        # y_bar_h in Foody paper which is error matrix values)
-        strata_err_mat[key[0]].append((key[1], y_bar_h, strata_size))
-strata_err_mat
-
-for key, value in strata_err_mat.items():
-    N_star_hs = np.array([i[2] for i in value])
-    y_bar_hs = np.array([i[1] for i in value])
-    strata_err_mat[key].append(sum(N_star_hs * y_bar_hs/N))
-
-    # To be used as numerators for user's and producer's accuracy
-    strata_err_mat[key].append(sum(N_star_hs * y_bar_hs))
-
-# Extracting the last element of each list for each key
-error_mat_dict = {(k1, k2): v[-1] for (k1, k2), v in strata_err_mat.items()}
-
-# Creating a DataFrame from the extracted data
-df = pd.DataFrame(list(error_mat_dict.items()), columns=["keys", "values"])
-
-# Splitting the keys into separate columns
-df[["Map", "Reference"]] = pd.DataFrame(df["keys"].tolist(), index=df.index)
-
-# Creating cross tab
-error_matrix = pd.crosstab(
-    index=df["Map"], columns=df["Reference"], values=df["values"], aggfunc="sum"
-)
-
-# overall_accuray
-diag_vals = []
-for i in np.arange(0, error_matrix.shape[0]):
-    diag_vals.append(error_matrix.iloc[i, i])
-overall_acc = np.array(diag_vals).sum()/error_matrix.values.sum()
-print(overall_acc)
 # -
 
 # ### User's accuracy
 
 # ![Overal_acc](formulas/Users_producers.png)
+
+# +
+c = 2 # We have two classes: 1 and 2
+
+# Filter for instances that are mapped as c.
+c_dict = {key: value for key, value in id_dict.items() if key[0][0] == c}
+# Filter for instances that are mapped as c and referenced as c, too.
+cc_dict = {key: value for key, value in id_dict.items() if (key[0][0] == c and key[0][1] == c)}
+
+# List stratas for c and cc 
+c_strata_list = [key[1] for key, _ in c_dict.items()]
+cc_strata_list = [key[1] for key, _ in cc_dict.items()]
+
+
+
+# ##### Calculate numerator sum
+y_bar_h_dict = defaultdict(list)
+for strata in np.unique(np.array(cc_strata_list)):
+    strata_subset = {key: value for key, value in cc_dict.items() if key[1] == strata}
+    A_yu = sum([value[2] for key, values in strata_subset.items()
+                      for value in values if key[0][0] == key[0][1]])
+    A_n_star_h = sum([value[2] for key, values in strata_subset.items()
+                    for value in values])
+
+    y_bar_h_dict[strata].append(A_yu/A_n_star_h)
+
+
+
+acr_data = data['six_OverSam_TestRes']['inclusion_prob']
+Y_bar_list = []
+for strata, y_bar_h in y_bar_h_dict.items():
+    # Find the index of the first row where "CropTyp" is "alfalfa"
+    index = acr_data[acr_data['CropTyp'] == strata].index[0]
+
+    # Now use .at to access the specific value
+    A_N_star_h = acr_data.at[index, 'denom_acr']
+
+    Y_bar_list.append(A_N_star_h * y_bar_h[0])
+
+numerator_sum = sum(Y_bar_list)
+
+###########  Calculate denominator sum  ###########
+y_bar_h_dict = defaultdict(list)
+for strata in np.unique(np.array(c_strata_list)):
+    strata_subset = {key: value for key, value in c_dict.items() if key[1] == strata}
+    A_yu = sum([value[2] for key, values in strata_subset.items()
+                      for value in values])
+    A_n_star_h = sum([value[2] for key, values in strata_subset.items()
+                    for value in values])
+
+    y_bar_h_dict[strata].append(A_yu/A_n_star_h)
+
+
+
+acr_data = data['six_OverSam_TestRes']['inclusion_prob']
+Y_bar_list = []
+for strata, y_bar_h in y_bar_h_dict.items():
+    # Find the index of the first row where "CropTyp" is "alfalfa"
+    index = acr_data[acr_data['CropTyp'] == strata].index[0]
+
+    # Now use .at to access the specific value
+    A_N_star_h = acr_data.at[index, 'denom_acr']
+
+    Y_bar_list.append(A_N_star_h * y_bar_h[0])
+
+denominator_sum = sum(Y_bar_list)
+
+users_acc = numerator_sum/denominator_sum
+print(users_acc)
+
+# +
+c = 2 # We have two classes: 1 and 2
+
+# Filter for instances that are mapped as c.
+c_dict = {key: value for key, value in id_dict.items() if key[0][1] == c}
+# Filter for instances that are mapped as c and referenced as c, too.
+cc_dict = {key: value for key, value in id_dict.items() if (key[0][0] == c and key[0][1] == c)}
+
+# List stratas for c and cc 
+c_strata_list = [key[1] for key, _ in c_dict.items()]
+cc_strata_list = [key[1] for key, _ in cc_dict.items()]
+
+
+
+# ##### Calculate numerator sum
+y_bar_h_dict = defaultdict(list)
+for strata in np.unique(np.array(cc_strata_list)):
+    strata_subset = {key: value for key, value in cc_dict.items() if key[1] == strata}
+    A_yu = sum([value[2] for key, values in strata_subset.items()
+                      for value in values if key[0][0] == key[0][1]])
+    A_n_star_h = sum([value[2] for key, values in strata_subset.items()
+                    for value in values])
+
+    y_bar_h_dict[strata].append(A_yu/A_n_star_h)
+
+
+
+acr_data = data['six_OverSam_TestRes']['inclusion_prob']
+Y_bar_list = []
+for strata, y_bar_h in y_bar_h_dict.items():
+    # Find the index of the first row where "CropTyp" is "alfalfa"
+    index = acr_data[acr_data['CropTyp'] == strata].index[0]
+
+    # Now use .at to access the specific value
+    A_N_star_h = acr_data.at[index, 'denom_acr']
+
+    Y_bar_list.append(A_N_star_h * y_bar_h[0])
+
+numerator_sum = sum(Y_bar_list)
+
+###########  Calculate denominator sum  ###########
+y_bar_h_dict = defaultdict(list)
+for strata in np.unique(np.array(c_strata_list)):
+    strata_subset = {key: value for key, value in c_dict.items() if key[1] == strata}
+    A_yu = sum([value[2] for key, values in strata_subset.items()
+                      for value in values])
+    A_n_star_h = sum([value[2] for key, values in strata_subset.items()
+                    for value in values])
+
+    y_bar_h_dict[strata].append(A_yu/A_n_star_h)
+
+
+
+acr_data = data['six_OverSam_TestRes']['inclusion_prob']
+Y_bar_list = []
+for strata, y_bar_h in y_bar_h_dict.items():
+    # Find the index of the first row where "CropTyp" is "alfalfa"
+    index = acr_data[acr_data['CropTyp'] == strata].index[0]
+
+    # Now use .at to access the specific value
+    A_N_star_h = acr_data.at[index, 'denom_acr']
+
+    Y_bar_list.append(A_N_star_h * y_bar_h[0])
+
+denominator_sum = sum(Y_bar_list)
+
+users_acc = numerator_sum/denominator_sum
+print(users_acc)
+# -
+
+numerator_sum
+
+y_bar_h_dict
 
 # +
 c = 1    # class = [1, 2]

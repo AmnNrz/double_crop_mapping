@@ -605,14 +605,10 @@ def calculate_metrics(test_df, acr_data, N, A_N):
                 'se_u': se_u, 
                 'p': producers_acc,
                 'se_p': se_p,
-                'id_dict':id_dict}
+                'id_dict':id_dict, 
+                's_s_area': s_s_area, 
+                'd_d_area': d_d_area}
 
-
-list(data["six_OverSam_TestRes"].keys())[:4]
-
-data["six_OverSam_TestRes"]["test_results_SVM"].keys()
-
-data["six_OverSam_TestRes"]["test_results_SVM"]["train_ID0"].keys()
 
 # +
 # path_to_data = (
@@ -646,21 +642,23 @@ for key, value in dict(list(data["six_OverSam_TestRes"].items())[:4]).items():
         test_set = test_set.merge(field_info, on="ID", how="inner")
 
         metrics = calculate_metrics(test_set, acr_data, N, A_N)
-        metrics_list.append({
-        'model': key,
-        'test_set': key_,
-        'Overall_acc': metrics['o'],
-        'SE_O': metrics['se_o'],
-        'User\'s_acc': metrics['user'],
-        'SE_U': metrics['se_u'],
-        'Producer\'s_acc': metrics['p'],
-        'SE_P': metrics['se_p']
-    })
+        metrics_list.append(
+            {
+                "model": key,
+                "test_set": key_,
+                "Overall_acc": metrics["o"],
+                "SE_O": metrics["se_o"],
+                "User's_acc": metrics["user"],
+                "SE_U": metrics["se_u"],
+                "Producer's_acc": metrics["p"],
+                "SE_P": metrics["se_p"],
+                "s_s_area": metrics["s_s_area"],
+                "d_d_area": metrics["d_d_area"],
+            }
+        )
 
 df = pd.DataFrame(metrics_list)
 df
 # -
 
-A_N
-
-metrics['id_dict']
+df.to_csv(path_to_data + "paper_metrics.csv")

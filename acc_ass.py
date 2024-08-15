@@ -78,8 +78,12 @@ def dict_to_df(master_dictionary):
 
 # -
 
-def calculate_metrics(test_df, acr_data, N, A_N):
+for c in np.array([1, 2]):
+    print(c)
 
+
+def calculate_metrics(test_df, acr_data, N, A_N):
+    result_dict = {}
     id_dict = defaultdict(list)
     # Since prediction columns name is different for different algorithms
     pred_col_name = next((col for col in test_df.columns if "NDVI" in col), None)
@@ -90,14 +94,17 @@ def calculate_metrics(test_df, acr_data, N, A_N):
         )
 
     # Correctly classified acres
-    s_s_area = test_df.loc[
+    correct_single_area = test_df.loc[
         (test_df["Vote"] == 1) & (test_df[pred_col_name] == 1)]["ExctAcr"].sum()
-    d_d_area = test_df.loc[
-        (test_df["Vote"] == 2) & (test_df[pred_col_name] == 2)]["ExctAcr"].sum()
+    correct_double_area = test_df.loc[
+        (test_df["Vote"] == 2) & (test_df[pred_col_name] == 2)
+    ]["ExctAcr"].sum()
 
-    print("Area of correctly classified as single: ", s_s_area)
-    print("Area of correctly classified as double: ", d_d_area)
+    print("Area of correctly classified as single: ", correct_single_area)
+    print("Area of correctly classified as double: ", correct_double_area)
 
+    result_dict["correct_single_area"] = correct_single_area
+    result_dict["correct_double_area"] = correct_double_area
     ###########################################################
     ###########################################################
     # OVERALL ACCURACY
@@ -135,10 +142,13 @@ def calculate_metrics(test_df, acr_data, N, A_N):
 
         y_bar_h = A_yu / A_n_star_h
 
-        # Sample variance (based on counts not area)
         y_bar_h_count = len(A_yu_list) / master_dict[(strata, "n_star_h")][0]
         yu_0_1 = np.append(np.ones(len(A_yu_list)), np.zeros(n_star_h - len(A_yu_list)))
-        sy_h_2 = sum((yu_0_1 - y_bar_h_count) ** 2 / master_dict[(strata, "n_star_h")][0])
+        yu_0_1_area = np.append(np.array(A_yu_list), np.zeros(n_star_h - len(A_yu_list)))
+        # Sample variance (based on counts)
+        # sy_h_2 = sum(((yu_0_1 - y_bar_h_count) ** 2) / master_dict[(strata, "n_star_h")][0])
+        # Sample variance (based on area)
+        sy_h_2 = sum(((yu_0_1_area - y_bar_h) ** 2) / master_dict[(strata, "A_n_star_h")][0])
 
         master_dict[strata, "y_bar_h"].append(y_bar_h)
         master_dict[strata, "sy_h_2"].append(sy_h_2)
@@ -172,18 +182,23 @@ def calculate_metrics(test_df, acr_data, N, A_N):
     print("Overall Accuracy = ", Overall_acc)
 
     # Variance of overall accuracy
-    v_o = (1 / (N)) * sum(v_list)
+    v_o = (1 / (A_N**2)) * sum(v_list)
     se_o = np.sqrt(v_o)
     # v_o_countbased = (1 / N**2) * sum(v_list_countbased)
     print("Area-based standard error of overall accuracy = ", se_o)
     # print("Count-based Variance of overall accuracy = ", v_o_countbased)
+
+    result_dict['Overall_acc'] = Overall_acc
+    result_dict['SE_o'] = se_o
 
     ######################################################################
     ######################################################################
     # USER'S ACCURACY AND SE
     ######################################################################
     ######################################################################
-    for c in [1, 2]:
+  
+    for c in np.array([1, 2]):
+        print(c)
         # Filter for instances that are mapped as c.
         c_dict = {key: value for key, value in id_dict.items() if key[0][0] == c}
         # Filter for instances that are mapped as c and referenced as c, too (cc).
@@ -388,6 +403,10 @@ def calculate_metrics(test_df, acr_data, N, A_N):
         v_u = (1 / master_df["x_hat"].sum()) * sum(v_sum_list)
         se_u = np.sqrt(v_u)
         print("Area-based standard error of user's accuracy = ", se_u)
+
+        
+        result_dict['Users_acc_' + f'{c}'] = users_acc
+        result_dict['SE_u_' + f'{c}'] = se_u
 
         ######################################################################
         ######################################################################
@@ -599,16 +618,12 @@ def calculate_metrics(test_df, acr_data, N, A_N):
         se_p = np.sqrt(v_p)
         print("Area-based standard error of producer's accuracy = ", se_p)
 
-        return {'o': Overall_acc,
-                'se_o': se_o,
-                'user': users_acc,
-                'se_u': se_u, 
-                'p': producers_acc,
-                'se_p': se_p,
-                'id_dict':id_dict, 
-                's_s_area': s_s_area, 
-                'd_d_area': d_d_area}
+        result_dict["Producers_acc_" + f"{c}"] = producers_acc
+        result_dict["SE_p_" + f"{c}"] = se_p
 
+    return result_dict
+
+metrics
 
 # +
 # path_to_data = (
@@ -646,14 +661,18 @@ for key, value in dict(list(data["six_OverSam_TestRes"].items())[:4]).items():
             {
                 "model": key,
                 "test_set": key_,
-                "Overall_acc": metrics["o"],
-                "SE_O": metrics["se_o"],
-                "User's_acc": metrics["user"],
-                "SE_U": metrics["se_u"],
-                "Producer's_acc": metrics["p"],
-                "SE_P": metrics["se_p"],
-                "s_s_area": metrics["s_s_area"],
-                "d_d_area": metrics["d_d_area"],
+                "Overall_acc": metrics["Overall_acc"],
+                "SE_O": metrics["SE_o"],
+                "User's_acc_single": metrics["Users_acc_1"],
+                "SE_U_single": metrics["SE_u_1"],
+                "Producer's_acc_single": metrics["Producers_acc_1"],
+                "SE_P_single": metrics["SE_p_1"],
+                "User's_acc_double": metrics["Users_acc_2"],
+                "SE_U_double": metrics["SE_u_2"],
+                "Producer's_acc_double": metrics["Producers_acc_2"],
+                "SE_P_double": metrics["SE_p_2"],
+                "correct_single_area": metrics["correct_single_area"],
+                "correct_double_area": metrics["correct_double_area"],
             }
         )
 

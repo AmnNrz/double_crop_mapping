@@ -372,3 +372,20 @@ slprj/
 
 settings.json
 *.json
+
+*.jpg
+*.jpeg
+
+qsubs/
+error/
+output/
+
+*.gdb
+*.cpg
+*.qmd
+*.prj
+*.dbf
+*.shp
+*.shx
+*.qgz
+*.sav
